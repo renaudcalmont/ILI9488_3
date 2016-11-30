@@ -404,45 +404,6 @@ class ILI9488_t3 : public Print
 #define swap(a, b) { typeof(a) t = a; a = b; b = t; }
 #endif
 
-<<<<<<< Updated upstream:ILI9341_t3.h
-// To avoid conflict when also using Adafruit_GFX or any Adafruit library
-// which depends on Adafruit_GFX, #include the Adafruit library *BEFORE*
-// you #include ILI9341_t3.h.
-#ifndef _ADAFRUIT_GFX_H
-class Adafruit_GFX_Button {
-=======
-/*class Adafruit_GFX_Button {
->>>>>>> Stashed changes:ILI9488_t3.h
-public:
-	Adafruit_GFX_Button(void) { _gfx = NULL; }
-	void initButton(ILI9488_t3 *gfx, int16_t x, int16_t y,
-		uint8_t w, uint8_t h,
-		uint16_t outline, uint16_t fill, uint16_t textcolor,
-		const char *label, uint8_t textsize);
-	void drawButton(bool inverted = false);
-	bool contains(int16_t x, int16_t y);
-	void press(boolean p) {
-		laststate = currstate;
-		currstate = p;
-	}
-	bool isPressed() { return currstate; }
-	bool justPressed() { return (currstate && !laststate); }
-	bool justReleased() { return (!currstate && laststate); }
-private:
-	ILI9488_t3 *_gfx;
-	int16_t _x, _y;
-	uint16_t _w, _h;
-	uint8_t _textsize;
-	uint16_t _outlinecolor, _fillcolor, _textcolor;
-	char _label[10];
-	boolean currstate, laststate;
-<<<<<<< Updated upstream:ILI9341_t3.h
-};
-#endif
-=======
-};*/
->>>>>>> Stashed changes:ILI9488_t3.h
-
 #endif // __cplusplus
 
 
