@@ -1,7 +1,7 @@
 {
-  "name": "ILI9341_t3",
+  "name": "ILI9488_t3",
   "keywords": "display, tft, lcd, graphics, spi",
-  "description": "Optimized ILI9341 (320x240 Color TFT) Display",
+  "description": "Optimized ILI9488 (320x480 Color TFT) Display",
   "authors": [
     {
         "name": "Limor Fried",

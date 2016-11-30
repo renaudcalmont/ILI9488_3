@@ -1,8 +1,8 @@
-// https://github.com/PaulStoffregen/ILI9341_t3
-// http://forum.pjrc.com/threads/26305-Highly-optimized-ILI9341-(320x240-TFT-color-display)-library
+// https://github.com/PaulStoffregen/ILI9488_t3
+// http://forum.pjrc.com/threads/26305-Highly-optimized-ILI9488-(320x240-TFT-color-display)-library
 
 /***************************************************
-  This is our library for the Adafruit ILI9341 Breakout and Shield
+  This is our library for the Adafruit ILI9488 Breakout and Shield
   ----> http://www.adafruit.com/products/1651
 
   Check out the links above for our tutorials and wiring diagrams
@@ -29,9 +29,9 @@
 
 //Additional Color Support
 //------------------------
-//		color565toRGB		- converts 565 format 16 bit color to RGB
-//		color565toRGB14		- converts 16 bit 565 format color to 14 bit RGB (2 bits clear for math and sign)
-//		RGB14tocolor565		- converts 14 bit RGB back to 16 bit 565 format color
+//		color888toRGB		- converts 888 format 24 bit color to RGB
+//		color888toRGB14		- converts 24 bit 888 format color to 14 bit RGB (2 bits clear for math and sign)
+//		RGB14tocolor888		- converts 14 bit RGB back to 24 bit 888 format color
 
 //Low Memory Bitmap Support
 //-------------------------
@@ -48,19 +48,19 @@
 
 // <\SoftEgg>
 
-#include "ILI9341_t3.h"
+#include "ILI9488_t3.h"
 #include <SPI.h>
 
 // Teensy 3.1 can only generate 30 MHz SPI when running at 120 MHz (overclock)
 // At all other speeds, SPI.beginTransaction() will use the fastest available clock
 #define SPICLOCK 30000000
 
-#define WIDTH  ILI9341_TFTWIDTH
-#define HEIGHT ILI9341_TFTHEIGHT
+#define WIDTH  ILI9488_TFTWIDTH
+#define HEIGHT ILI9488_TFTHEIGHT
 
 // Constructor when using hardware SPI.  Faster, but must use SPI pins
 // specific to each board type (e.g. 11,13 for Uno, 51,52 for Mega, etc.)
-ILI9341_t3::ILI9341_t3(uint8_t cs, uint8_t dc, uint8_t rst, uint8_t mosi, uint8_t sclk, uint8_t miso)
+ILI9488_t3::ILI9488_t3(uint8_t cs, uint8_t dc, uint8_t rst, uint8_t mosi, uint8_t sclk, uint8_t miso)
 {
 	_cs   = cs;
 	_dc   = dc;
@@ -70,41 +70,41 @@ ILI9341_t3::ILI9341_t3(uint8_t cs, uint8_t dc, uint8_t rst, uint8_t mosi, uint8_
 	_miso = miso;
 	_width    = WIDTH;
 	_height   = HEIGHT;
-	rotation  = 0;
+	rotation  = 1;
 	cursor_y  = cursor_x    = 0;
 	textsize  = 1;
-	textcolor = textbgcolor = 0xFFFF;
+	textcolor = textbgcolor = 0xFFFFFF;
 	wrap      = true;
 	font      = NULL;
 }
 
-void ILI9341_t3::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+void ILI9488_t3::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x0, y0, x1, y1);
-	writecommand_last(ILI9341_RAMWR); // write to RAM
+	writecommand_last(ILI9488_RAMWR); // write to RAM
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::pushColor(uint16_t color)
+void ILI9488_t3::pushColor(uint32_t color)
 {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
-	writedata16_last(color);
+	writecolor_last(color);
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::drawPixel(int16_t x, int16_t y, uint16_t color) {
+void ILI9488_t3::drawPixel(int16_t x, int16_t y, uint32_t color) {
 
 	if((x < 0) ||(x >= _width) || (y < 0) || (y >= _height)) return;
 
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x, y);
-	writecommand_cont(ILI9341_RAMWR);
-	writedata16_last(color);
+	writecommand_cont(ILI9488_RAMWR);
+	writecolor_last(color);
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+void ILI9488_t3::drawFastVLine(int16_t x, int16_t y, int16_t h, uint32_t color)
 {
 	// Rudimentary clipping
 	if((x >= _width) || (x < 0) || (y >= _height)) return;
@@ -112,15 +112,15 @@ void ILI9341_t3::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
 	if((y+h-1) >= _height) h = _height-y;
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	while (h-- > 1) {
-		writedata16_cont(color);
+		writecolor_cont(color);
 	}
-	writedata16_last(color);
+	writecolor_last(color);
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
+void ILI9488_t3::drawFastHLine(int16_t x, int16_t y, int16_t w, uint32_t color)
 {
 	// Rudimentary clipping
 	if((x >= _width) || (y >= _height) || (y < 0)) return;
@@ -128,21 +128,21 @@ void ILI9341_t3::drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
 	if((x+w-1) >= _width)  w = _width-x;
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	while (w-- > 1) {
-		writedata16_cont(color);
+		writecolor_cont(color);
 	}
-	writedata16_last(color);
+	writecolor_last(color);
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::fillScreen(uint16_t color)
+void ILI9488_t3::fillScreen(uint32_t color)
 {
 	fillRect(0, 0, _width, _height, color);
 }
 
 // fill a rectangle
-void ILI9341_t3::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+void ILI9488_t3::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t color)
 {
 	// rudimentary clipping (drawChar w/big text requires this)
 	if((x >= _width) || (y >= _height)) return;
@@ -156,12 +156,12 @@ void ILI9341_t3::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c
 	// it'll cost more overhead, so we don't stall other SPI libs
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>1; x--) {
-			writedata16_cont(color);
+			writecolor_cont(color);
 		}
-		writedata16_last(color);
+		writecolor_last(color);
 		if (y > 1 && (y & 1)) {
 			SPI.endTransaction();
 			SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
@@ -171,16 +171,16 @@ void ILI9341_t3::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c
 }
 
 // fillRectVGradient	- fills area with vertical gradient
-void ILI9341_t3::fillRectVGradient(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color1, uint16_t color2)
+void ILI9488_t3::fillRectVGradient(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t color1, uint32_t color2)
 {
 	// rudimentary clipping (drawChar w/big text requires this)
 	if((x >= _width) || (y >= _height)) return;
 	if((x + w - 1) >= _width)  w = _width  - x;
 	if((y + h - 1) >= _height) h = _height - y;
 	
-	int16_t r1, g1, b1, r2, g2, b2, dr, dg, db, r, g, b;
-	color565toRGB14(color1,r1,g1,b1);
-	color565toRGB14(color2,r2,g2,b2);
+	uint8_t r1, g1, b1, r2, g2, b2, dr, dg, db, r, g, b;
+	color888toRGB(color1,r1,g1,b1);
+	color888toRGB(color2,r2,g2,b2);
 	dr=(r2-r1)/h; dg=(g2-g1)/h; db=(b2-b1)/h;
 	r=r1;g=g1;b=b1;	
 
@@ -189,14 +189,14 @@ void ILI9341_t3::fillRectVGradient(int16_t x, int16_t y, int16_t w, int16_t h, u
 	// it'll cost more overhead, so we don't stall other SPI libs
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
-		uint16_t color = RGB14tocolor565(r,g,b);
+		uint32_t color = color888(r,g,b);
 
 		for(x=w; x>1; x--) {
-			writedata16_cont(color);
+			writecolor_cont(color);
 		}
-		writedata16_last(color);
+		writecolor_last(color);
 		if (y > 1 && (y & 1)) {
 			SPI.endTransaction();
 			SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
@@ -207,16 +207,16 @@ void ILI9341_t3::fillRectVGradient(int16_t x, int16_t y, int16_t w, int16_t h, u
 }
 
 // fillRectHGradient	- fills area with horizontal gradient
-void ILI9341_t3::fillRectHGradient(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color1, uint16_t color2)
+void ILI9488_t3::fillRectHGradient(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t color1, uint32_t color2)
 {
 	// rudimentary clipping (drawChar w/big text requires this)
 	if((x >= _width) || (y >= _height)) return;
 	if((x + w - 1) >= _width)  w = _width  - x;
 	if((y + h - 1) >= _height) h = _height - y;
 	
-	int16_t r1, g1, b1, r2, g2, b2, dr, dg, db, r, g, b;
-	color565toRGB14(color1,r1,g1,b1);
-	color565toRGB14(color2,r2,g2,b2);
+	uint8_t r1, g1, b1, r2, g2, b2, dr, dg, db, r, g, b;
+	color888toRGB(color1,r1,g1,b1);
+	color888toRGB(color2,r2,g2,b2);
 	dr=(r2-r1)/h; dg=(g2-g1)/h; db=(b2-b1)/h;
 	r=r1;g=g1;b=b1;	
 
@@ -225,16 +225,16 @@ void ILI9341_t3::fillRectHGradient(int16_t x, int16_t y, int16_t w, int16_t h, u
 	// it'll cost more overhead, so we don't stall other SPI libs
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
-		uint16_t color;
+		uint32_t color;
 		for(x=w; x>1; x--) {
-			color = RGB14tocolor565(r,g,b);
-			writedata16_cont(color);
+			color = color888(r,g,b);
+			writecolor_cont(color);
 			r+=dr;g+=dg; b+=db;
 		}
-		color = RGB14tocolor565(r,g,b);
-		writedata16_last(color);
+		color = color888(r,g,b);
+		writecolor_last(color);
 		if (y > 1 && (y & 1)) {
 			SPI.endTransaction();
 			SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
@@ -245,13 +245,13 @@ void ILI9341_t3::fillRectHGradient(int16_t x, int16_t y, int16_t w, int16_t h, u
 }
 
 // fillScreenVGradient - fills screen with vertical gradient
-void ILI9341_t3::fillScreenVGradient(uint16_t color1, uint16_t color2)
+void ILI9488_t3::fillScreenVGradient(uint32_t color1, uint32_t color2)
 {
 	fillRectVGradient(0,0,_width,_height,color1,color2);
 }
 
 // fillScreenHGradient - fills screen with horizontal gradient
-void ILI9341_t3::fillScreenHGradient(uint16_t color1, uint16_t color2)
+void ILI9488_t3::fillScreenHGradient(uint32_t color1, uint32_t color2)
 {
 	fillRectHGradient(0,0,_width,_height,color1,color2);
 }
@@ -265,31 +265,53 @@ void ILI9341_t3::fillScreenHGradient(uint16_t color1, uint16_t color2)
 #define MADCTL_BGR 0x08
 #define MADCTL_MH  0x04
 
-void ILI9341_t3::setRotation(uint8_t m)
+void ILI9488_t3::setBrightness(uint8_t m)
+{
+	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	writecommand_cont(0x51);
+	writedata8_last(m);
+	SPI.endTransaction();
+}
+
+void ILI9488_t3::displayOn()
+{
+	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	writecommand_last(ILI9488_DISPON);
+	SPI.endTransaction();
+}
+
+void ILI9488_t3::displayOff()
+{
+	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	writecommand_last(ILI9488_DISPOFF);
+	SPI.endTransaction();
+}
+
+void ILI9488_t3::setRotation(uint8_t m)
 {
 	rotation = m % 4; // can't be higher than 3
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
-	writecommand_cont(ILI9341_MADCTL);
+	writecommand_cont(ILI9488_MADCTL);
 	switch (rotation) {
 	case 0:
 		writedata8_last(MADCTL_MX | MADCTL_BGR);
-		_width  = ILI9341_TFTWIDTH;
-		_height = ILI9341_TFTHEIGHT;
+		_width  = ILI9488_TFTWIDTH;
+		_height = ILI9488_TFTHEIGHT;
 		break;
 	case 1:
 		writedata8_last(MADCTL_MV | MADCTL_BGR);
-		_width  = ILI9341_TFTHEIGHT;
-		_height = ILI9341_TFTWIDTH;
+		_width  = ILI9488_TFTHEIGHT;
+		_height = ILI9488_TFTWIDTH;
 		break;
 	case 2:
 		writedata8_last(MADCTL_MY | MADCTL_BGR);
-		_width  = ILI9341_TFTWIDTH;
-		_height = ILI9341_TFTHEIGHT;
+		_width  = ILI9488_TFTWIDTH;
+		_height = ILI9488_TFTHEIGHT;
 		break;
 	case 3:
 		writedata8_last(MADCTL_MX | MADCTL_MY | MADCTL_MV | MADCTL_BGR);
-		_width  = ILI9341_TFTHEIGHT;
-		_height = ILI9341_TFTWIDTH;
+		_width  = ILI9488_TFTHEIGHT;
+		_height = ILI9488_TFTWIDTH;
 		break;
 	}
 	SPI.endTransaction();
@@ -297,18 +319,18 @@ void ILI9341_t3::setRotation(uint8_t m)
 	cursor_y = 0;
 }
 
-void ILI9341_t3::setScroll(uint16_t offset)
+void ILI9488_t3::setScroll(uint16_t offset)
 {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
-	writecommand_cont(ILI9341_VSCRSADD);
+	writecommand_cont(ILI9488_VSCRSADD);
 	writedata16_last(offset);
 	SPI.endTransaction();
 }
 
-void ILI9341_t3::invertDisplay(boolean i)
+void ILI9488_t3::invertDisplay(boolean i)
 {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
-	writecommand_last(i ? ILI9341_INVON : ILI9341_INVOFF);
+	writecommand_last(i ? ILI9488_INVON : ILI9488_INVOFF);
 	SPI.endTransaction();
 }
 
@@ -322,7 +344,7 @@ void ILI9341_t3::invertDisplay(boolean i)
 
 
 /*
-uint8_t ILI9341_t3::readdata(void)
+uint8_t ILI9488_t3::readdata(void)
 {
   uint8_t r;
        // Try to work directly with SPI registers...
@@ -345,7 +367,7 @@ uint8_t ILI9341_t3::readdata(void)
  */
 
 
-uint8_t ILI9341_t3::readcommand8(uint8_t c, uint8_t index)
+uint8_t ILI9488_t3::readcommand8(uint8_t c, uint8_t index)
 {
     uint16_t wTimeout = 0xffff;
     uint8_t r=0;
@@ -400,15 +422,15 @@ uint8_t ILI9341_t3::readcommand8(uint8_t c, uint8_t index)
 
 
 // Read Pixel at x,y and get back 16-bit packed color
-uint16_t ILI9341_t3::readPixel(int16_t x, int16_t y)
+uint16_t ILI9488_t3::readPixel(int16_t x, int16_t y)
 {
 	uint8_t dummy __attribute__((unused));
 	uint8_t r,g,b;
 
-	SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 
 	setAddr(x, y, x, y);
-	writecommand_cont(ILI9341_RAMRD); // read from RAM
+	writecommand_cont(ILI9488_RAMRD); // read from RAM
 	waitTransmitComplete();
 
 	// Push 4 bytes over SPI
@@ -430,20 +452,20 @@ uint16_t ILI9341_t3::readPixel(int16_t x, int16_t y)
 	b = KINETISK_SPI0.POPR;		// Read a BLUE byte of GRAM
 
 	SPI.endTransaction();
-	return color565(r,g,b);
+	return color888(r,g,b);
 }
 
 // Now lets see if we can read in multiple pixels
-void ILI9341_t3::readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *pcolors)
+void ILI9488_t3::readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t *pcolors)
 {
 	uint8_t dummy __attribute__((unused));
 	uint8_t r,g,b;
 	uint16_t c = w * h;
 
-	SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMRD); // read from RAM
+	writecommand_cont(ILI9488_RAMRD); // read from RAM
 	waitTransmitComplete();
 	KINETISK_SPI0.PUSHR = 0 | (pcs_data << 16) | SPI_PUSHR_CTAS(0)| SPI_PUSHR_CONT | SPI_PUSHR_EOQ;
 	while ((KINETISK_SPI0.SR & SPI_SR_EOQF) == 0) ;
@@ -469,7 +491,7 @@ void ILI9341_t3::readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *
 			r = KINETISK_SPI0.POPR;		// Read a RED byte of GRAM
 			g = KINETISK_SPI0.POPR;		// Read a GREEN byte of GRAM
 			b = KINETISK_SPI0.POPR;		// Read a BLUE byte of GRAM
-			*pcolors++ = color565(r,g,b);
+			*pcolors++ = color888(r,g,b);
 		}
 
 		// like waitFiroNotFull but does not pop our return queue
@@ -479,16 +501,33 @@ void ILI9341_t3::readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *
 }
 
 // Now lets see if we can writemultiple pixels
-void ILI9341_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *pcolors)
+void ILI9488_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint32_t *pcolors)
 {
    	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>1; x--) {
-			writedata16_cont(*pcolors++);
+			writecolor_cont(*pcolors++);
 		}
-		writedata16_last(*pcolors++);
+		writecolor_last(*pcolors++);
+	}
+	SPI.endTransaction();
+}
+
+// Now lets see if we can writemultiple pixels
+void ILI9488_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pcolors)
+{
+   	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	setAddr(x, y, x+w-1, y+h-1);
+	writecommand_cont(ILI9488_RAMWR);
+	for(int i=0; i<3; i++) {
+		for(y=h; y>0; y--) {
+			for(x=w; x>1; x--) {
+				writedata8_cont(*pcolors++);
+			}
+			writedata8_last(*pcolors++);
+		}
 	}
 	SPI.endTransaction();
 }
@@ -496,16 +535,16 @@ void ILI9341_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uin
 // writeRect8BPP - 	write 8 bit per pixel paletted bitmap
 //					bitmap data in array at pixels, one byte per pixel
 //					color palette data in array at palette
-void ILI9341_t3::writeRect8BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint16_t * palette )
+void ILI9488_t3::writeRect8BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint32_t * palette )
 {
    	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>1; x--) {
-			writedata16_cont(palette[*pixels++]);
+			writecolor_cont(palette[*pixels++]);
 		}
-		writedata16_last(palette[*pixels++]);
+		writecolor_last(palette[*pixels++]);
 	}
 	SPI.endTransaction();
 }
@@ -514,18 +553,18 @@ void ILI9341_t3::writeRect8BPP(int16_t x, int16_t y, int16_t w, int16_t h, const
 //					bitmap data in array at pixels, 4 bits per pixel
 //					color palette data in array at palette
 //					width must be at least 2 pixels
-void ILI9341_t3::writeRect4BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint16_t * palette )
+void ILI9488_t3::writeRect4BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint32_t * palette )
 {
    	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>2; x-=2) {
-			writedata16_cont(palette[((*pixels)>>4)&0xF]);
-			writedata16_cont(palette[(*pixels++)&0xF]);
+			writecolor_cont(palette[((*pixels)>>4)&0xF]);
+			writecolor_cont(palette[(*pixels++)&0xF]);
 		}
-		writedata16_cont(palette[((*pixels)>>4)&0xF]);
-		writedata16_last(palette[(*pixels++)&0xF]);
+		writecolor_cont(palette[((*pixels)>>4)&0xF]);
+		writecolor_last(palette[(*pixels++)&0xF]);
 	}
 	SPI.endTransaction();
 }
@@ -534,23 +573,23 @@ void ILI9341_t3::writeRect4BPP(int16_t x, int16_t y, int16_t w, int16_t h, const
 //					bitmap data in array at pixels, 4 bits per pixel
 //					color palette data in array at palette
 //					width must be at least 4 pixels
-void ILI9341_t3::writeRect2BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint16_t * palette )
+void ILI9488_t3::writeRect2BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint32_t * palette )
 {
    	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>4; x-=4) {
 			//unrolled loop might be faster?
-			writedata16_cont(palette[((*pixels)>>6)&0x3]);
-			writedata16_cont(palette[((*pixels)>>4)&0x3]);
-			writedata16_cont(palette[((*pixels)>>2)&0x3]);
-			writedata16_cont(palette[(*pixels++)&0x3]);
+			writecolor_cont(palette[((*pixels)>>6)&0x3]);
+			writecolor_cont(palette[((*pixels)>>4)&0x3]);
+			writecolor_cont(palette[((*pixels)>>2)&0x3]);
+			writecolor_cont(palette[(*pixels++)&0x3]);
 		}
-		writedata16_cont(palette[((*pixels)>>6)&0x3]);
-		writedata16_cont(palette[((*pixels)>>4)&0x3]);
-		writedata16_cont(palette[((*pixels)>>2)&0x3]);
-		writedata16_last(palette[(*pixels++)&0x3]);
+		writecolor_cont(palette[((*pixels)>>6)&0x3]);
+		writecolor_cont(palette[((*pixels)>>4)&0x3]);
+		writecolor_cont(palette[((*pixels)>>2)&0x3]);
+		writecolor_last(palette[(*pixels++)&0x3]);
 	}
 	SPI.endTransaction();
 }
@@ -559,63 +598,55 @@ void ILI9341_t3::writeRect2BPP(int16_t x, int16_t y, int16_t w, int16_t h, const
 //					bitmap data in array at pixels, 4 bits per pixel
 //					color palette data in array at palette
 //					width must be at least 8 pixels
-void ILI9341_t3::writeRect1BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint16_t * palette )
+void ILI9488_t3::writeRect1BPP(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pixels, const uint32_t * palette )
 {
    	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	setAddr(x, y, x+w-1, y+h-1);
-	writecommand_cont(ILI9341_RAMWR);
+	writecommand_cont(ILI9488_RAMWR);
 	for(y=h; y>0; y--) {
 		for(x=w; x>8; x-=8) {
 			//unrolled loop might be faster?
-			writedata16_cont(palette[((*pixels)>>7)&0x1]);
-			writedata16_cont(palette[((*pixels)>>6)&0x1]);
-			writedata16_cont(palette[((*pixels)>>5)&0x1]);
-			writedata16_cont(palette[((*pixels)>>4)&0x1]);
-			writedata16_cont(palette[((*pixels)>>3)&0x1]);
-			writedata16_cont(palette[((*pixels)>>2)&0x1]);
-			writedata16_cont(palette[((*pixels)>>1)&0x1]);
-			writedata16_cont(palette[(*pixels++)&0x1]);
+			writecolor_cont(palette[((*pixels)>>7)&0x1]);
+			writecolor_cont(palette[((*pixels)>>6)&0x1]);
+			writecolor_cont(palette[((*pixels)>>5)&0x1]);
+			writecolor_cont(palette[((*pixels)>>4)&0x1]);
+			writecolor_cont(palette[((*pixels)>>3)&0x1]);
+			writecolor_cont(palette[((*pixels)>>2)&0x1]);
+			writecolor_cont(palette[((*pixels)>>1)&0x1]);
+			writecolor_cont(palette[(*pixels++)&0x1]);
 		}
-		writedata16_cont(palette[((*pixels)>>7)&0x1]);
-		writedata16_cont(palette[((*pixels)>>6)&0x1]);
-		writedata16_cont(palette[((*pixels)>>5)&0x1]);
-		writedata16_cont(palette[((*pixels)>>4)&0x1]);
-		writedata16_cont(palette[((*pixels)>>3)&0x1]);
-		writedata16_cont(palette[((*pixels)>>2)&0x1]);
-		writedata16_cont(palette[((*pixels)>>1)&0x1]);
-		writedata16_last(palette[(*pixels++)&0x1]);
+		writecolor_cont(palette[((*pixels)>>7)&0x1]);
+		writecolor_cont(palette[((*pixels)>>6)&0x1]);
+		writecolor_cont(palette[((*pixels)>>5)&0x1]);
+		writecolor_cont(palette[((*pixels)>>4)&0x1]);
+		writecolor_cont(palette[((*pixels)>>3)&0x1]);
+		writecolor_cont(palette[((*pixels)>>2)&0x1]);
+		writecolor_cont(palette[((*pixels)>>1)&0x1]);
+		writecolor_last(palette[(*pixels++)&0x1]);
 	}
 	SPI.endTransaction();
 }
 
 
 static const uint8_t init_commands[] = {
-	4, 0xEF, 0x03, 0x80, 0x02,
-	4, 0xCF, 0x00, 0XC1, 0X30,
-	5, 0xED, 0x64, 0x03, 0X12, 0X81,
-	4, 0xE8, 0x85, 0x00, 0x78,
-	6, 0xCB, 0x39, 0x2C, 0x00, 0x34, 0x02,
-	2, 0xF7, 0x20,
-	3, 0xEA, 0x00, 0x00,
-	2, ILI9341_PWCTR1, 0x23, // Power control
-	2, ILI9341_PWCTR2, 0x10, // Power control
-	3, ILI9341_VMCTR1, 0x3e, 0x28, // VCM control
-	2, ILI9341_VMCTR2, 0x86, // VCM control2
-	2, ILI9341_MADCTL, 0x48, // Memory Access Control
-	2, ILI9341_PIXFMT, 0x55,
-	3, ILI9341_FRMCTR1, 0x00, 0x18,
-	4, ILI9341_DFUNCTR, 0x08, 0x82, 0x27, // Display Function Control
-	2, 0xF2, 0x00, // Gamma Function Disable
-	2, ILI9341_GAMMASET, 0x01, // Gamma curve selected
-	16, ILI9341_GMCTRP1, 0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08,
-		0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00, // Set Gamma
-	16, ILI9341_GMCTRN1, 0x00, 0x0E, 0x14, 0x03, 0x11, 0x07,
-		0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F, // Set Gamma
-	3, 0xb1, 0x00, 0x10, // FrameRate Control 119Hz
+	16, 0xE0, 0x00, 0x03, 0x09, 0x08, 0x16, 0x0A, 0x3F, 0x78, 0x4C, 0x09, 0x0A, 0x08, 0x16, 0x1A, 0x0F, // Positive Gamma control
+	16, 0XE1, 0x00, 0x16, 0x19, 0x03, 0x0F, 0x05, 0x32, 0x45, 0x46, 0x04, 0x0E, 0x0D, 0x35, 0x37, 0x0F, // Negative Gamma control
+	3, 0XC0, 0x17, 0x15, // Power control 1
+	2, 0xC1, 0x41, // Power control 2
+	4, 0xC5, 0x00, 0x12, 0x80, // Power control 3
+	2, 0x36, 0x48, // Memory Access Control
+	2, 0x3A, 0x66, // Pixel format
+	2, 0XB0, 0x80,      // Interface Mode Control
+	2, 0xB1, 0xC0, // FrameRate Control 60 Hz
+	2, 0xB4, 0x02,     // Display Inversion Control
+	3, 0XB6, 0x02, 0x02, // Display Function Control
+	2, 0XE9, 0x00, 0x02, // Disable 24 bits data
+	5, 0xF7, 0xA9, 0x51, 0x2C, 0x82, // Adjust Control
+	/////////3, ILI9488_FRMCTR1, 0x00, 0x18,
 	0
 };
 
-void ILI9341_t3::begin(void)
+void ILI9488_t3::begin(void)
 {
     // verify SPI pins are valid;
     #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
@@ -627,19 +658,23 @@ void ILI9341_t3::begin(void)
         SPI.setMOSI(_mosi);
         SPI.setMISO(_miso);
         SPI.setSCK(_sclk);
-	} else
+	} else {
+		Serial.println("Error: Invalid pins configuration");
         return; // not valid pins...
+	}
 	SPI.begin();
 	if (SPI.pinIsChipSelect(_cs, _dc)) {
 		pcs_data = SPI.setCS(_cs);
 		pcs_command = pcs_data | SPI.setCS(_dc);
 	} else {
+		Serial.println("Warning: CS / DC are undefined");
 		pcs_data = 0;
 		pcs_command = 0;
 		return;
 	}
 	// toggle RST low to reset
 	if (_rst < 255) {
+		Serial.println("Info: Resetting");
 		pinMode(_rst, OUTPUT);
 		digitalWrite(_rst, HIGH);
 		delay(5);
@@ -661,6 +696,7 @@ void ILI9341_t3::begin(void)
 	Serial.print("\nSelf Diagnostic: 0x"); Serial.println(x, HEX);
 	*/
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	Serial.println("Info: Writing initialisation commands");
 	const uint8_t *addr = init_commands;
 	while (1) {
 		uint8_t count = *addr++;
@@ -670,12 +706,12 @@ void ILI9341_t3::begin(void)
 			writedata8_cont(*addr++);
 		}
 	}
-	writecommand_last(ILI9341_SLPOUT);    // Exit Sleep
+	writecommand_last(ILI9488_SLPOUT);    // Exit Sleep
 	SPI.endTransaction();
 
 	delay(120); 		
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
-	writecommand_last(ILI9341_DISPON);    // Display on
+	writecommand_last(ILI9488_DISPON);    // Display on
 	SPI.endTransaction();
 }
 
@@ -719,8 +755,8 @@ POSSIBILITY OF SUCH DAMAGE.
 extern "C" const unsigned char glcdfont[];
 
 // Draw a circle outline
-void ILI9341_t3::drawCircle(int16_t x0, int16_t y0, int16_t r,
-    uint16_t color) {
+void ILI9488_t3::drawCircle(int16_t x0, int16_t y0, int16_t r,
+    uint32_t color) {
   int16_t f = 1 - r;
   int16_t ddF_x = 1;
   int16_t ddF_y = -2 * r;
@@ -753,8 +789,8 @@ void ILI9341_t3::drawCircle(int16_t x0, int16_t y0, int16_t r,
   }
 }
 
-void ILI9341_t3::drawCircleHelper( int16_t x0, int16_t y0,
-               int16_t r, uint8_t cornername, uint16_t color) {
+void ILI9488_t3::drawCircleHelper( int16_t x0, int16_t y0,
+               int16_t r, uint8_t cornername, uint32_t color) {
   int16_t f     = 1 - r;
   int16_t ddF_x = 1;
   int16_t ddF_y = -2 * r;
@@ -789,15 +825,15 @@ void ILI9341_t3::drawCircleHelper( int16_t x0, int16_t y0,
   }
 }
 
-void ILI9341_t3::fillCircle(int16_t x0, int16_t y0, int16_t r,
-			      uint16_t color) {
+void ILI9488_t3::fillCircle(int16_t x0, int16_t y0, int16_t r,
+			      uint32_t color) {
   drawFastVLine(x0, y0-r, 2*r+1, color);
   fillCircleHelper(x0, y0, r, 3, 0, color);
 }
 
 // Used to do circles and roundrects
-void ILI9341_t3::fillCircleHelper(int16_t x0, int16_t y0, int16_t r,
-    uint8_t cornername, int16_t delta, uint16_t color) {
+void ILI9488_t3::fillCircleHelper(int16_t x0, int16_t y0, int16_t r,
+    uint8_t cornername, int16_t delta, uint32_t color) {
 
   int16_t f     = 1 - r;
   int16_t ddF_x = 1;
@@ -828,8 +864,8 @@ void ILI9341_t3::fillCircleHelper(int16_t x0, int16_t y0, int16_t r,
 
 
 // Bresenham's algorithm - thx wikpedia
-void ILI9341_t3::drawLine(int16_t x0, int16_t y0,
-	int16_t x1, int16_t y1, uint16_t color)
+void ILI9488_t3::drawLine(int16_t x0, int16_t y0,
+	int16_t x1, int16_t y1, uint32_t color)
 {
 	if (y0 == y1) {
 		if (x1 > x0) {
@@ -912,25 +948,25 @@ void ILI9341_t3::drawLine(int16_t x0, int16_t y0,
 			HLine(xbegin, y0, x0 - xbegin, color);
 		}
 	}
-	writecommand_last(ILI9341_NOP);
+	writecommand_last(ILI9488_NOP);
 	SPI.endTransaction();
 }
 
 // Draw a rectangle
-void ILI9341_t3::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+void ILI9488_t3::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t color)
 {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	HLine(x, y, w, color);
 	HLine(x, y+h-1, w, color);
 	VLine(x, y, h, color);
 	VLine(x+w-1, y, h, color);
-	writecommand_last(ILI9341_NOP);
+	writecommand_last(ILI9488_NOP);
 	SPI.endTransaction();
 }
 
 // Draw a rounded rectangle
-void ILI9341_t3::drawRoundRect(int16_t x, int16_t y, int16_t w,
-  int16_t h, int16_t r, uint16_t color) {
+void ILI9488_t3::drawRoundRect(int16_t x, int16_t y, int16_t w,
+  int16_t h, int16_t r, uint32_t color) {
   // smarter version
   drawFastHLine(x+r  , y    , w-2*r, color); // Top
   drawFastHLine(x+r  , y+h-1, w-2*r, color); // Bottom
@@ -944,8 +980,8 @@ void ILI9341_t3::drawRoundRect(int16_t x, int16_t y, int16_t w,
 }
 
 // Fill a rounded rectangle
-void ILI9341_t3::fillRoundRect(int16_t x, int16_t y, int16_t w,
-				 int16_t h, int16_t r, uint16_t color) {
+void ILI9488_t3::fillRoundRect(int16_t x, int16_t y, int16_t w,
+				 int16_t h, int16_t r, uint32_t color) {
   // smarter version
   fillRect(x+r, y, w-2*r, h, color);
 
@@ -955,18 +991,18 @@ void ILI9341_t3::fillRoundRect(int16_t x, int16_t y, int16_t w,
 }
 
 // Draw a triangle
-void ILI9341_t3::drawTriangle(int16_t x0, int16_t y0,
+void ILI9488_t3::drawTriangle(int16_t x0, int16_t y0,
 				int16_t x1, int16_t y1,
-				int16_t x2, int16_t y2, uint16_t color) {
+				int16_t x2, int16_t y2, uint32_t color) {
   drawLine(x0, y0, x1, y1, color);
   drawLine(x1, y1, x2, y2, color);
   drawLine(x2, y2, x0, y0, color);
 }
 
 // Fill a triangle
-void ILI9341_t3::fillTriangle ( int16_t x0, int16_t y0,
+void ILI9488_t3::fillTriangle ( int16_t x0, int16_t y0,
 				  int16_t x1, int16_t y1,
-				  int16_t x2, int16_t y2, uint16_t color) {
+				  int16_t x2, int16_t y2, uint32_t color) {
 
   int16_t a, b, y, last;
 
@@ -1041,9 +1077,9 @@ void ILI9341_t3::fillTriangle ( int16_t x0, int16_t y0,
   }
 }
 
-void ILI9341_t3::drawBitmap(int16_t x, int16_t y,
+void ILI9488_t3::drawBitmap(int16_t x, int16_t y,
 			      const uint8_t *bitmap, int16_t w, int16_t h,
-			      uint16_t color) {
+			      uint32_t color) {
 
   int16_t i, j, byteWidth = (w + 7) / 8;
 
@@ -1056,7 +1092,7 @@ void ILI9341_t3::drawBitmap(int16_t x, int16_t y,
   }
 }
 
-size_t ILI9341_t3::write(uint8_t c)
+size_t ILI9488_t3::write(uint8_t c)
 {
 	if (font) {
 		if (c == '\n') {
@@ -1084,8 +1120,8 @@ size_t ILI9341_t3::write(uint8_t c)
 }
 
 // Draw a character
-void ILI9341_t3::drawChar(int16_t x, int16_t y, unsigned char c,
-			    uint16_t fgcolor, uint16_t bgcolor, uint8_t size)
+void ILI9488_t3::drawChar(int16_t x, int16_t y, unsigned char c,
+			    uint32_t fgcolor, uint32_t bgcolor, uint8_t size)
 {
 	if((x >= _width)            || // Clip right
 	   (y >= _height)           || // Clip bottom
@@ -1179,10 +1215,10 @@ void ILI9341_t3::drawChar(int16_t x, int16_t y, unsigned char c,
 		// This solid background approach is about 5 time faster
 		SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 		setAddr(x, y, x + 6 * size - 1, y + 8 * size - 1);
-		writecommand_cont(ILI9341_RAMWR);
+		writecommand_cont(ILI9488_RAMWR);
 		uint8_t xr, yr;
 		uint8_t mask = 0x01;
-		uint16_t color;
+		uint32_t color;
 		for (y=0; y < 8; y++) {
 			for (yr=0; yr < size; yr++) {
 				for (x=0; x < 5; x++) {
@@ -1192,16 +1228,16 @@ void ILI9341_t3::drawChar(int16_t x, int16_t y, unsigned char c,
 						color = bgcolor;
 					}
 					for (xr=0; xr < size; xr++) {
-						writedata16_cont(color);
+						writecolor_cont(color);
 					}
 				}
 				for (xr=0; xr < size; xr++) {
-					writedata16_cont(bgcolor);
+					writecolor_cont(bgcolor);
 				}
 			}
 			mask = mask << 1;
 		}
-		writecommand_last(ILI9341_NOP);
+		writecommand_last(ILI9488_NOP);
 		SPI.endTransaction();
 	}
 }
@@ -1243,7 +1279,7 @@ static uint32_t fetchbits_signed(const uint8_t *p, uint32_t index, uint32_t requ
 }
 
 
-void ILI9341_t3::drawFontChar(unsigned int c)
+void ILI9488_t3::drawFontChar(unsigned int c)
 {
 	uint32_t bitoffset;
 	const uint8_t *data;
@@ -1352,7 +1388,7 @@ void ILI9341_t3::drawFontChar(unsigned int c)
 }
 
 //strPixelLen			- gets pixel length of given ASCII string
-int16_t ILI9341_t3::strPixelLen(char * str)
+int16_t ILI9488_t3::strPixelLen(char * str)
 {
 //	Serial.printf("strPixelLen %s\n", str);
 	if (!str) return(0);
@@ -1428,7 +1464,7 @@ int16_t ILI9341_t3::strPixelLen(char * str)
 	return( maxlen );
 }
 
-void ILI9341_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint32_t y, uint32_t repeat)
+void ILI9488_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint32_t y, uint32_t repeat)
 {
 #if 0			
 	// TODO: replace this *slow* code with something fast...
@@ -1457,7 +1493,7 @@ void ILI9341_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint3
 		uint32_t x1 = x;
 		uint32_t n = numbits;		
 		
-		writecommand_cont(ILI9341_PASET); // Row addr set
+		writecommand_cont(ILI9488_PASET); // Row addr set
 		writedata16_cont(y);   // YSTART
 		writedata16_cont(y);   // YEND	
 		
@@ -1468,14 +1504,14 @@ void ILI9341_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint3
 			}
 			else if (w > 0) {
 				// "drawFastHLine(x1 - w, y, w, textcolor)"
-				writecommand_cont(ILI9341_CASET); // Column addr set
+				writecommand_cont(ILI9488_CASET); // Column addr set
 				writedata16_cont(x1 - w);   // XSTART
 				writedata16_cont(x1);   // XEND					
-				writecommand_cont(ILI9341_RAMWR);
+				writecommand_cont(ILI9488_RAMWR);
 				while (w-- > 1) { // draw line
-					writedata16_cont(textcolor);
+					writecolor_cont(textcolor);
 				}
-				writedata16_last(textcolor);
+				writecolor_last(textcolor);
 			}
 						
 			x1++;
@@ -1483,14 +1519,14 @@ void ILI9341_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint3
 
 		if (w > 0) {
 				// "drawFastHLine(x1 - w, y, w, textcolor)"
-				writecommand_cont(ILI9341_CASET); // Column addr set
+				writecommand_cont(ILI9488_CASET); // Column addr set
 				writedata16_cont(x1 - w);   // XSTART
 				writedata16_cont(x1);   // XEND
-				writecommand_cont(ILI9341_RAMWR);				
+				writecommand_cont(ILI9488_RAMWR);				
 				while (w-- > 1) { //draw line
-					writedata16_cont(textcolor);
+					writecolor_cont(textcolor);
 				}
-				writedata16_last(textcolor);
+				writecolor_last(textcolor);
 		}
 		
 		y++;
@@ -1500,7 +1536,7 @@ void ILI9341_t3::drawFontBits(uint32_t bits, uint32_t numbits, uint32_t x, uint3
 #endif	
 }
 
-void ILI9341_t3::setCursor(int16_t x, int16_t y) {
+void ILI9488_t3::setCursor(int16_t x, int16_t y) {
 	if (x < 0) x = 0;
 	else if (x >= _width) x = _width - 1;
 	cursor_x = x;
@@ -1509,58 +1545,58 @@ void ILI9341_t3::setCursor(int16_t x, int16_t y) {
 	cursor_y = y;
 }
 
-void ILI9341_t3::getCursor(int16_t *x, int16_t *y) {
+void ILI9488_t3::getCursor(int16_t *x, int16_t *y) {
   *x = cursor_x;
   *y = cursor_y;
 }
 
-void ILI9341_t3::setTextSize(uint8_t s) {
+void ILI9488_t3::setTextSize(uint8_t s) {
   textsize = (s > 0) ? s : 1;
 }
 
-uint8_t ILI9341_t3::getTextSize() {
+uint8_t ILI9488_t3::getTextSize() {
 	return textsize;
 }
 
-void ILI9341_t3::setTextColor(uint16_t c) {
+void ILI9488_t3::setTextColor(uint32_t c) {
   // For 'transparent' background, we'll set the bg
   // to the same as fg instead of using a flag
   textcolor = textbgcolor = c;
 }
 
-void ILI9341_t3::setTextColor(uint16_t c, uint16_t b) {
+void ILI9488_t3::setTextColor(uint32_t c, uint32_t b) {
   textcolor   = c;
   textbgcolor = b;
 }
 
-void ILI9341_t3::setTextWrap(boolean w) {
+void ILI9488_t3::setTextWrap(boolean w) {
   wrap = w;
 }
 
-boolean ILI9341_t3::getTextWrap()
+boolean ILI9488_t3::getTextWrap()
 {
 	return wrap;
 }
 
-uint8_t ILI9341_t3::getRotation(void) {
+uint8_t ILI9488_t3::getRotation(void) {
   return rotation;
 }
 
-void ILI9341_t3::sleep(bool enable) {
+void ILI9488_t3::sleep(bool enable) {
 	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
 	if (enable) {
-		writecommand_cont(ILI9341_DISPOFF);		
-		writecommand_last(ILI9341_SLPIN);	
+		writecommand_cont(ILI9488_DISPOFF);		
+		writecommand_last(ILI9488_SLPIN);	
 		  SPI.endTransaction();
 	} else {
-		writecommand_cont(ILI9341_DISPON);
-		writecommand_last(ILI9341_SLPOUT);
+		writecommand_cont(ILI9488_DISPON);
+		writecommand_last(ILI9488_SLPOUT);
 		SPI.endTransaction();
 		delay(5);
 	}
 }
 
-void Adafruit_GFX_Button::initButton(ILI9341_t3 *gfx,
+/*void Adafruit_GFX_Button::initButton(ILI9488_t3 *gfx,
 	int16_t x, int16_t y, uint8_t w, uint8_t h,
 	uint16_t outline, uint16_t fill, uint16_t textcolor,
 	const char *label, uint8_t textsize)
@@ -1604,5 +1640,5 @@ bool Adafruit_GFX_Button::contains(int16_t x, int16_t y)
 	if ((x < (_x - _w/2)) || (x > (_x + _w/2))) return false;
 	if ((y < (_y - _h/2)) || (y > (_y + _h/2))) return false;
 	return true;
-}
+}*/
 
