@@ -222,6 +222,7 @@ class ILI9488_t3 : public Print
 	void readRect(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t *pcolors);
 	void writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint32_t *pcolors);
 	void writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pcolors);
+	void writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pcolors, double luminosity);
 
 	// writeRect8BPP - 	write 8 bit per pixel paletted bitmap
 	//					bitmap data in array at pixels, one byte per pixel

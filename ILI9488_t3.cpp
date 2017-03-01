@@ -532,6 +532,23 @@ void ILI9488_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uin
 	SPI.endTransaction();
 }
 
+// Now lets see if we can writemultiple pixels
+void ILI9488_t3::writeRect(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t *pcolors, double luminosity)
+{
+   	SPI.beginTransaction(SPISettings(SPICLOCK, MSBFIRST, SPI_MODE0));
+	setAddr(x, y, x+w-1, y+h-1);
+	writecommand_cont(ILI9488_RAMWR);
+	for(int i=0; i<3; i++) {
+		for(y=h; y>0; y--) {
+			for(x=w; x>1; x--) {
+				writedata8_cont((*pcolors++) * luminosity);
+			}
+			writedata8_last((*pcolors++) * luminosity);
+		}
+	}
+	SPI.endTransaction();
+}
+
 // writeRect8BPP - 	write 8 bit per pixel paletted bitmap
 //					bitmap data in array at pixels, one byte per pixel
 //					color palette data in array at palette
